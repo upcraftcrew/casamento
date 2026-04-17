@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
 
           <section className="mb-16">
             <div className="flex items-center gap-4 mb-8">
-              <MetaLabel>Usuários</MetaLabel>
+              <MetaLabel>Admins</MetaLabel>
               <span className="flex-1 h-px bg-[hsl(var(--border))]" />
               <Link
                 href="/admin/usuarios"
@@ -160,17 +160,17 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-[1px] bg-[hsl(var(--border))]">
-              <StatCard label="Total" value={userStats.total} />
               <StatCard
-                label="Admins"
+                label="Total"
                 value={
                   <span className="inline-flex items-center gap-3">
                     <Shield className="w-6 h-6" />
-                    {userStats.admins}
+                    {userStats.total}
                   </span>
                 }
               />
-              <StatCard label="Convidados" value={userStats.convidados} />
+              <StatCard label="Ativos" value={userStats.ativos} />
+              <StatCard label="Pendentes" value={userStats.pendentes} />
             </div>
           </section>
 

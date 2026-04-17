@@ -1,20 +1,30 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { userRole } from "./schema";
-import { getUserByClerkId, isBootstrapAdmin, requireAdmin } from "./lib/admin";
+import {
+  findUserByClerkId,
+  findUserByEmail,
+  getBootstrapAdminEmails,
+  requireAdmin,
+} from "./lib/admin";
 
 const userObject = v.object({
   _id: v.id("users"),
   _creationTime: v.number(),
-  clerkUserId: v.string(),
   email: v.string(),
+  clerkUserId: v.optional(v.string()),
   name: v.optional(v.string()),
   imageUrl: v.optional(v.string()),
-  role: userRole,
   createdAt: v.number(),
   updatedAt: v.number(),
 });
 
+/**
+ * Chamado pelo cliente após o login do Clerk.
+ * - Se já existe linha com esse clerkUserId → atualiza metadados.
+ * - Se existe linha com o mesmo e-mail (pré-cadastrado por um admin) → casa o clerkUserId.
+ * - Se o e-mail está em ADMIN_EMAILS → cria registro novo.
+ * - Caso contrário, retorna null (usuário não autorizado).
+ */
 export const ensureCurrent = mutation({
   args: {},
   returns: v.union(userObject, v.null()),
@@ -31,35 +41,46 @@ export const ensureCurrent = mutation({
     const imageUrl = identity.pictureUrl ?? undefined;
     const now = Date.now();
 
-    const existing = await getUserByClerkId(ctx, clerkUserId);
-
-    if (existing) {
+    const byClerk = await findUserByClerkId(ctx, clerkUserId);
+    if (byClerk) {
       const patch: Record<string, unknown> = { updatedAt: now };
-      if (existing.email !== email && email) patch.email = email;
-      if (name !== undefined && existing.name !== name) patch.name = name;
-      if (imageUrl !== undefined && existing.imageUrl !== imageUrl) {
+      if (email && byClerk.email !== email) patch.email = email;
+      if (name !== undefined && byClerk.name !== name) patch.name = name;
+      if (imageUrl !== undefined && byClerk.imageUrl !== imageUrl) {
         patch.imageUrl = imageUrl;
       }
       if (Object.keys(patch).length > 1) {
-        await ctx.db.patch(existing._id, patch);
+        await ctx.db.patch(byClerk._id, patch);
       }
-      const refreshed = await ctx.db.get(existing._id);
-      return refreshed;
+      return await ctx.db.get(byClerk._id);
     }
 
-    const isBootstrap = email ? await isBootstrapAdmin(email) : false;
-    const role = isBootstrap ? "admin" : "convidado";
-    const id = await ctx.db.insert("users", {
-      clerkUserId,
-      email,
-      name,
-      imageUrl,
-      role,
-      createdAt: now,
-      updatedAt: now,
-    });
-    const inserted = await ctx.db.get(id);
-    return inserted;
+    if (email) {
+      const byEmail = await findUserByEmail(ctx, email);
+      if (byEmail) {
+        await ctx.db.patch(byEmail._id, {
+          clerkUserId,
+          name: name ?? byEmail.name,
+          imageUrl: imageUrl ?? byEmail.imageUrl,
+          updatedAt: now,
+        });
+        return await ctx.db.get(byEmail._id);
+      }
+    }
+
+    if (email && getBootstrapAdminEmails().includes(email)) {
+      const id = await ctx.db.insert("users", {
+        email,
+        clerkUserId,
+        name,
+        imageUrl,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return await ctx.db.get(id);
+    }
+
+    return null;
   },
 });
 
@@ -69,8 +90,11 @@ export const current = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
-    const user = await getUserByClerkId(ctx, identity.subject);
-    return user;
+    const byClerk = await findUserByClerkId(ctx, identity.subject);
+    if (byClerk) return byClerk;
+    const email = (identity.email ?? "").toLowerCase();
+    if (email) return await findUserByEmail(ctx, email);
+    return null;
   },
 });
 
@@ -79,46 +103,30 @@ export const listAdmin = query({
   returns: v.array(userObject),
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const users = await ctx.db.query("users").order("desc").collect();
-    return users;
+    return await ctx.db.query("users").order("desc").collect();
   },
 });
 
-export const setRole = mutation({
-  args: {
-    id: v.id("users"),
-    role: userRole,
-  },
-  returns: v.null(),
+export const inviteByEmail = mutation({
+  args: { email: v.string(), name: v.optional(v.string()) },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx);
-    const target = await ctx.db.get(args.id);
-    if (!target) throw new Error("Usuário não encontrado.");
-
-    if (
-      args.role !== "admin" &&
-      target.clerkUserId === admin.clerkUserId
-    ) {
-      throw new Error(
-        "Você não pode remover seu próprio acesso de administrador."
-      );
+    await requireAdmin(ctx);
+    const email = args.email.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      throw new Error("E-mail inválido.");
     }
-
-    if (args.role !== "admin" && target.role === "admin") {
-      const admins = await ctx.db
-        .query("users")
-        .withIndex("by_role", (q) => q.eq("role", "admin"))
-        .collect();
-      if (admins.length <= 1) {
-        throw new Error("Mantenha pelo menos um administrador.");
-      }
+    const existing = await findUserByEmail(ctx, email);
+    if (existing) {
+      throw new Error("Este e-mail já tem acesso.");
     }
-
-    await ctx.db.patch(args.id, {
-      role: args.role,
-      updatedAt: Date.now(),
+    const now = Date.now();
+    return await ctx.db.insert("users", {
+      email,
+      name: args.name?.trim() || undefined,
+      createdAt: now,
+      updatedAt: now,
     });
-    return null;
   },
 });
 
@@ -130,18 +138,13 @@ export const remove = mutation({
     const target = await ctx.db.get(args.id);
     if (!target) throw new Error("Usuário não encontrado.");
 
-    if (target.clerkUserId === admin.clerkUserId) {
+    if (target.clerkUserId && target.clerkUserId === admin.clerkUserId) {
       throw new Error("Você não pode excluir a si mesmo.");
     }
 
-    if (target.role === "admin") {
-      const admins = await ctx.db
-        .query("users")
-        .withIndex("by_role", (q) => q.eq("role", "admin"))
-        .collect();
-      if (admins.length <= 1) {
-        throw new Error("Mantenha pelo menos um administrador.");
-      }
+    const all = await ctx.db.query("users").collect();
+    if (all.length <= 1) {
+      throw new Error("Mantenha pelo menos um administrador.");
     }
 
     await ctx.db.delete(args.id);
@@ -153,16 +156,16 @@ export const stats = query({
   args: {},
   returns: v.object({
     total: v.number(),
-    admins: v.number(),
-    convidados: v.number(),
+    ativos: v.number(),
+    pendentes: v.number(),
   }),
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const all = await ctx.db.query("users").collect();
     return {
       total: all.length,
-      admins: all.filter((u) => u.role === "admin").length,
-      convidados: all.filter((u) => u.role === "convidado").length,
+      ativos: all.filter((u) => !!u.clerkUserId).length,
+      pendentes: all.filter((u) => !u.clerkUserId).length,
     };
   },
 });

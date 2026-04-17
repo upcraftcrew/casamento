@@ -13,24 +13,17 @@ export const paymentStatus = v.union(
   v.literal("cancelado")
 );
 
-export const userRole = v.union(
-  v.literal("admin"),
-  v.literal("convidado")
-);
-
 export default defineSchema({
   users: defineTable({
-    clerkUserId: v.string(),
     email: v.string(),
+    clerkUserId: v.optional(v.string()),
     name: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
-    role: userRole,
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_clerkUserId", ["clerkUserId"])
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_clerkUserId", ["clerkUserId"]),
 
   messages: defineTable({
     name: v.string(),

@@ -8,14 +8,14 @@ export type AdminIdentity = {
   name?: string;
 };
 
-function getBootstrapAdminEmails(): string[] {
+export function getBootstrapAdminEmails(): string[] {
   return (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 }
 
-export async function getUserByClerkId(
+export async function findUserByClerkId(
   ctx: QueryCtx | MutationCtx,
   clerkUserId: string
 ): Promise<Doc<"users"> | null> {
@@ -25,6 +25,20 @@ export async function getUserByClerkId(
     .unique();
 }
 
+export async function findUserByEmail(
+  ctx: QueryCtx | MutationCtx,
+  email: string
+): Promise<Doc<"users"> | null> {
+  return await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+    .unique();
+}
+
+/**
+ * Verifica se o usuário autenticado está registrado na tabela `users`
+ * (ou é um bootstrap admin via `ADMIN_EMAILS`). Se não estiver, nega acesso.
+ */
 export async function requireAdmin(
   ctx: QueryCtx | MutationCtx
 ): Promise<AdminIdentity> {
@@ -35,18 +49,29 @@ export async function requireAdmin(
   const email = (identity.email ?? "").toLowerCase();
   const clerkUserId = identity.subject;
 
-  const user = await getUserByClerkId(ctx, clerkUserId);
-  if (user?.role === "admin") {
+  const byClerk = await findUserByClerkId(ctx, clerkUserId);
+  if (byClerk) {
     return {
       tokenIdentifier: identity.tokenIdentifier,
       clerkUserId,
-      email: user.email,
-      name: user.name,
+      email: byClerk.email,
+      name: byClerk.name,
     };
   }
 
-  const bootstrap = getBootstrapAdminEmails();
-  if (email && bootstrap.includes(email)) {
+  if (email) {
+    const byEmail = await findUserByEmail(ctx, email);
+    if (byEmail) {
+      return {
+        tokenIdentifier: identity.tokenIdentifier,
+        clerkUserId,
+        email: byEmail.email,
+        name: byEmail.name,
+      };
+    }
+  }
+
+  if (email && getBootstrapAdminEmails().includes(email)) {
     return {
       tokenIdentifier: identity.tokenIdentifier,
       clerkUserId,
@@ -56,8 +81,4 @@ export async function requireAdmin(
   }
 
   throw new Error("Acesso negado.");
-}
-
-export async function isBootstrapAdmin(email: string): Promise<boolean> {
-  return getBootstrapAdminEmails().includes(email.toLowerCase());
 }
