@@ -30,20 +30,18 @@ export default function ThresholdPage() {
     <div className="relative min-h-screen w-full bg-background text-foreground overflow-hidden grain-overlay">
       <div
         aria-hidden
-        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        className="absolute inset-0 pointer-events-none overflow-hidden"
       >
-        <span
-          className="font-display italic select-none"
-          style={{
-            fontSize: "min(80vw, 900px)",
-            lineHeight: 1,
-            color: "hsl(var(--primary))",
-            opacity: 0.04,
-            letterSpacing: "-0.06em",
-          }}
-        >
-          R&amp;P
-        </span>
+        <video
+          src="/casados-igreja.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-white/75" />
       </div>
 
       <motion.div
