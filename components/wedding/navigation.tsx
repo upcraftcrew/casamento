@@ -25,10 +25,6 @@ export default function Navigation() {
   const pathname = usePathname();
 
   useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
@@ -78,6 +74,7 @@ export default function Navigation() {
               <div className="flex items-center justify-between">
                 <Link
                   href="/home"
+                  onClick={() => setOpen(false)}
                   className="font-display italic text-2xl text-[hsl(var(--primary))]"
                 >
                   R&amp;P
@@ -112,6 +109,7 @@ export default function Navigation() {
                       >
                         <Link
                           href={r.path}
+                          onClick={() => setOpen(false)}
                           className="group flex items-baseline gap-6 md:gap-10 py-3 border-b border-[hsl(var(--border))]"
                         >
                           <span className="meta-label pt-2">{r.num}</span>
