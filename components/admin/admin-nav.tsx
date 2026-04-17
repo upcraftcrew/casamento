@@ -8,7 +8,6 @@ const links = [
   { href: "/admin/presentes", label: "Presentes", num: "02" },
   { href: "/admin/mensagens", label: "Mensagens", num: "03" },
   { href: "/admin/pagamentos", label: "Pagamentos", num: "04" },
-  { href: "/admin/usuarios", label: "Usuários", num: "05" },
 ];
 
 export default function AdminNav() {

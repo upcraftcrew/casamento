@@ -2,14 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import {
-  Loader2,
-  Gift,
-  MessageCircle,
-  Wallet,
-  ArrowRight,
-  Shield,
-} from "lucide-react";
+import { Loader2, Gift, MessageCircle, Wallet, ArrowRight } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import MetaLabel from "@/components/wedding/meta-label";
 
@@ -39,13 +32,11 @@ export default function AdminDashboardPage() {
   const giftStats = useQuery(api.gifts.stats);
   const messageCount = useQuery(api.messages.countAdmin);
   const paymentStats = useQuery(api.payments.stats);
-  const userStats = useQuery(api.users.stats);
 
   const isLoading =
     giftStats === undefined ||
     messageCount === undefined ||
-    paymentStats === undefined ||
-    userStats === undefined;
+    paymentStats === undefined;
 
   return (
     <div>
@@ -145,32 +136,6 @@ export default function AdminDashboardPage() {
                   .toFixed(2)
                   .replace(".", ",")}`}
               />
-            </div>
-          </section>
-
-          <section className="mb-16">
-            <div className="flex items-center gap-4 mb-8">
-              <MetaLabel>Admins</MetaLabel>
-              <span className="flex-1 h-px bg-[hsl(var(--border))]" />
-              <Link
-                href="/admin/usuarios"
-                className="meta-label hover:text-[hsl(var(--primary))] transition-colors inline-flex items-center gap-2"
-              >
-                Gerenciar <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-[1px] bg-[hsl(var(--border))]">
-              <StatCard
-                label="Total"
-                value={
-                  <span className="inline-flex items-center gap-3">
-                    <Shield className="w-6 h-6" />
-                    {userStats.total}
-                  </span>
-                }
-              />
-              <StatCard label="Ativos" value={userStats.ativos} />
-              <StatCard label="Pendentes" value={userStats.pendentes} />
             </div>
           </section>
 
