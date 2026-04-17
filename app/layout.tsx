@@ -1,33 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Dancing_Script, Cormorant_Garamond } from "next/font/google";
+import { Cormorant_Garamond, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/header";
+import ConvexClientProvider from "@/components/providers/convex-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const dancingScript = Dancing_Script({
-  variable: "--font-bickham-script",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const cormorantGaramond = Cormorant_Garamond({
+const display = Cormorant_Garamond({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+});
+
+const body = Inter({
+  variable: "--font-body",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+});
+
+const mono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "Rodrigo & Paloma",
-  description: "Rodrigo & Paloma",
+  title: "Paloma & Rodrigo",
+  description: "O casamento de Paloma & Rodrigo — 15 · Nov · 2025",
 };
 
 export default function RootLayout({
@@ -38,10 +35,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${dancingScript.variable} ${cormorantGaramond.variable} antialiased`}
+        className={`${display.variable} ${body.variable} ${mono.variable} antialiased`}
       >
-        <Header />
-        {children}
+        <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>
   );
