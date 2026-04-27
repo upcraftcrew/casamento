@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Plus, Check, X, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Check,
+  X,
+  CheckCircle2,
+  XCircle,
+  Trash2,
+  ExternalLink,
+  Copy,
+} from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import MetaLabel from "@/components/wedding/meta-label";
@@ -11,27 +21,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type PaymentStatus = "pendente" | "pago" | "cancelado";
+type PaymentStatus = "pendente" | "pago" | "cancelado" | "expirado";
+type PaymentMethod = "PIX" | "CREDIT_CARD" | "MANUAL";
 
 const statusLabels: Record<PaymentStatus, string> = {
   pendente: "Pendente",
   pago: "Pago",
   cancelado: "Cancelado",
+  expirado: "Expirado",
+};
+
+const methodLabels: Record<PaymentMethod, string> = {
+  PIX: "PIX",
+  CREDIT_CARD: "Cartão",
+  MANUAL: "Manual",
 };
 
 export default function AdminPagamentosPage() {
   const payments = useQuery(api.payments.listAdmin);
   const gifts = useQuery(api.gifts.listAdmin);
-  const create = useMutation(api.payments.create);
+  const create = useMutation(api.payments.createManual);
   const markPaid = useMutation(api.payments.markPaid);
   const cancel = useMutation(api.payments.cancel);
   const remove = useMutation(api.payments.remove);
 
   const [formOpen, setFormOpen] = useState(false);
   const [giftId, setGiftId] = useState<string>("");
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState("");
   const [amount, setAmount] = useState("");
+  const [markAsPaid, setMarkAsPaid] = useState(true);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,9 +60,10 @@ export default function AdminPagamentosPage() {
   const closeForm = () => {
     setFormOpen(false);
     setGiftId("");
-    setGuestName("");
-    setGuestEmail("");
+    setBuyerName("");
+    setBuyerEmail("");
     setAmount("");
+    setMarkAsPaid(true);
     setError(null);
   };
 
@@ -60,9 +80,10 @@ export default function AdminPagamentosPage() {
       if (!giftId) throw new Error("Selecione um presente.");
       await create({
         giftId: giftId as Id<"gifts">,
-        guestName,
-        guestEmail: guestEmail.trim() || undefined,
+        buyerName,
+        buyerEmail: buyerEmail.trim() || undefined,
         amount: amountNum,
+        status: markAsPaid ? "pago" : "pendente",
       });
       closeForm();
     } catch (err) {
@@ -97,6 +118,14 @@ export default function AdminPagamentosPage() {
     }
   };
 
+  const handleCopy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignora
+    }
+  };
+
   return (
     <div>
       <section className="mb-12">
@@ -123,18 +152,6 @@ export default function AdminPagamentosPage() {
         </div>
       </section>
 
-      <section className="mb-10 border border-[hsl(var(--primary))]/30 p-6 md:p-8 bg-[hsl(var(--primary))]/5">
-        <MetaLabel className="mb-3">Em breve</MetaLabel>
-        <h3 className="font-display italic text-2xl md:text-3xl mb-2">
-          Integração com Asaas
-        </h3>
-        <p className="text-[hsl(var(--muted-foreground))] leading-relaxed max-w-2xl">
-          Em breve será possível receber pagamentos via PIX e cartão
-          diretamente pelo site, com confirmação automática. Por enquanto você
-          pode registrar pagamentos manualmente aqui.
-        </p>
-      </section>
-
       {isLoading ? (
         <div className="py-20 flex justify-center">
           <Loader2 className="w-5 h-5 animate-spin text-[hsl(var(--muted-foreground))]" />
@@ -146,83 +163,142 @@ export default function AdminPagamentosPage() {
           </p>
         </div>
       ) : (
-        <div className="border-t border-[hsl(var(--border))]">
+        <div className="space-y-4">
           {list.map((p) => (
             <article
               key={p._id}
-              className="border-b border-[hsl(var(--border))] py-6 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start"
+              className="border border-[hsl(var(--border))] p-6 md:p-7 bg-background/40"
             >
-              <div>
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <MetaLabel>
-                    {p.giftCategoria ?? "Sem categoria"}
-                  </MetaLabel>
-                  <span
-                    className={`meta-label px-2 py-0.5 border ${
-                      p.status === "pago"
-                        ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))]"
-                        : p.status === "cancelado"
-                          ? "border-[hsl(var(--destructive))] text-[hsl(var(--destructive))]"
-                          : "border-[hsl(var(--primary))] text-[hsl(var(--primary))]"
-                    }`}
-                  >
-                    {statusLabels[p.status]}
-                  </span>
-                  <span className="font-mono text-xs text-[hsl(var(--muted-foreground))]">
-                    {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                  </span>
-                </div>
-                <h3 className="font-display italic text-2xl text-[hsl(var(--foreground))] leading-tight mb-1">
-                  {p.giftTitulo ?? "Presente removido"}
-                </h3>
-                <div className="flex items-baseline gap-4 flex-wrap text-sm">
-                  <span className="text-[hsl(var(--foreground))]">
-                    <span className="meta-label mr-2">De</span>
-                    {p.guestName}
-                  </span>
-                  {p.guestEmail && (
-                    <span className="text-[hsl(var(--muted-foreground))]">
-                      {p.guestEmail}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <span
+                      className={`meta-label px-2 py-0.5 border ${
+                        p.status === "pago"
+                          ? "border-[hsl(var(--accent))] text-[hsl(var(--accent))]"
+                          : p.status === "cancelado" || p.status === "expirado"
+                            ? "border-[hsl(var(--destructive))] text-[hsl(var(--destructive))]"
+                            : "border-[hsl(var(--primary))] text-[hsl(var(--primary))]"
+                      }`}
+                    >
+                      {statusLabels[p.status]}
                     </span>
-                  )}
-                  <span className="font-mono text-[hsl(var(--primary))]">
-                    R$ {p.amount.toFixed(2).replace(".", ",")}
-                  </span>
-                </div>
-              </div>
+                    <span className="meta-label px-2 py-0.5 border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
+                      {methodLabels[p.paymentMethod]}
+                    </span>
+                    <span className="font-mono text-xs text-[hsl(var(--muted-foreground))]">
+                      {new Date(p.createdAt).toLocaleString("pt-BR")}
+                    </span>
+                  </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {p.status !== "pago" && (
+                  <h3 className="font-display italic text-2xl md:text-3xl text-[hsl(var(--foreground))] leading-tight">
+                    {p.buyerName}
+                  </h3>
+                  <div className="flex items-baseline gap-4 flex-wrap text-sm mt-1">
+                    {p.buyerEmail && (
+                      <span className="text-[hsl(var(--muted-foreground))]">
+                        {p.buyerEmail}
+                      </span>
+                    )}
+                    {p.buyerPhone && (
+                      <span className="text-[hsl(var(--muted-foreground))]">
+                        {p.buyerPhone}
+                      </span>
+                    )}
+                    <span className="font-mono text-[hsl(var(--primary))]">
+                      R$ {p.amount.toFixed(2).replace(".", ",")}
+                    </span>
+                  </div>
+
+                  {p.items.length > 0 && (
+                    <ul className="mt-4 border-l-2 border-[hsl(var(--border))] pl-4 space-y-1">
+                      {p.items.map((it) => (
+                        <li
+                          key={it._id}
+                          className="text-sm flex items-baseline gap-3"
+                        >
+                          <span className="meta-label">
+                            {it.giftCategoriaSnapshot}
+                          </span>
+                          <span className="text-[hsl(var(--foreground))]">
+                            {it.giftTituloSnapshot}
+                          </span>
+                          <span className="font-mono text-xs text-[hsl(var(--muted-foreground))] ml-auto">
+                            R$ {it.amount.toFixed(2).replace(".", ",")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {p.buyerMessage && (
+                    <p className="mt-4 italic text-[hsl(var(--muted-foreground))] border-l-2 border-[hsl(var(--accent))] pl-4">
+                      &ldquo;{p.buyerMessage}&rdquo;
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex md:flex-col items-start gap-2 flex-wrap md:flex-nowrap">
+                  {p.status !== "pago" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleMarkPaid(p._id)}
+                      className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--accent))]"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="meta-label">Marcar pago</span>
+                    </Button>
+                  )}
+                  {p.status === "pendente" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCancel(p._id)}
+                      className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--muted-foreground))]"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span className="meta-label">Cancelar</span>
+                    </Button>
+                  )}
+                  {p.invoiceUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--primary))]"
+                    >
+                      <a
+                        href={p.invoiceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span className="meta-label">Asaas</span>
+                      </a>
+                    </Button>
+                  )}
+                  {p.asaasPaymentId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(p.asaasPaymentId!)}
+                      className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--primary))]"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span className="meta-label">Copiar ID</span>
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleMarkPaid(p._id)}
-                    className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--accent))]"
+                    onClick={() => handleDelete(p._id)}
+                    className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--destructive))]"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span className="meta-label">Marcar pago</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="meta-label">Excluir</span>
                   </Button>
-                )}
-                {p.status === "pendente" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleCancel(p._id)}
-                    className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--muted-foreground))]"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span className="meta-label">Cancelar</span>
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(p._id)}
-                  className="gap-2 rounded-none hover:bg-transparent hover:text-[hsl(var(--destructive))]"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span className="meta-label">Excluir</span>
-                </Button>
+                </div>
               </div>
             </article>
           ))}
@@ -251,8 +327,11 @@ export default function AdminPagamentosPage() {
                 <div>
                   <MetaLabel className="mb-3">Novo</MetaLabel>
                   <h2 className="font-display italic text-3xl text-[hsl(var(--foreground))]">
-                    Registrar pagamento
+                    Registrar pagamento manual
                   </h2>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))] mt-2">
+                    Para presentes pagos fora do site (PIX direto, dinheiro, etc).
+                  </p>
                 </div>
                 <button
                   onClick={closeForm}
@@ -285,28 +364,28 @@ export default function AdminPagamentosPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="guestName" className="meta-label block mb-2">
+                  <Label htmlFor="buyerName" className="meta-label block mb-2">
                     Nome do convidado
                   </Label>
                   <Input
-                    id="guestName"
+                    id="buyerName"
                     type="text"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
+                    value={buyerName}
+                    onChange={(e) => setBuyerName(e.target.value)}
                     required
                     className="w-full bg-transparent border-0 border-b border-[hsl(var(--border))] focus-visible:border-[hsl(var(--primary))] focus-visible:ring-0 shadow-none rounded-none px-0 py-3 h-auto font-display italic text-xl"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="guestEmail" className="meta-label block mb-2">
+                  <Label htmlFor="buyerEmail" className="meta-label block mb-2">
                     E-mail (opcional)
                   </Label>
                   <Input
-                    id="guestEmail"
+                    id="buyerEmail"
                     type="email"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
+                    value={buyerEmail}
+                    onChange={(e) => setBuyerEmail(e.target.value)}
                     className="w-full bg-transparent border-0 border-b border-[hsl(var(--border))] focus-visible:border-[hsl(var(--primary))] focus-visible:ring-0 shadow-none rounded-none px-0 py-3 h-auto font-display italic text-xl"
                   />
                 </div>
@@ -326,6 +405,18 @@ export default function AdminPagamentosPage() {
                     className="w-full bg-transparent border-0 border-b border-[hsl(var(--border))] focus-visible:border-[hsl(var(--primary))] focus-visible:ring-0 shadow-none rounded-none px-0 py-3 h-auto font-display italic text-xl"
                   />
                 </div>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={markAsPaid}
+                    onChange={(e) => setMarkAsPaid(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="meta-label">
+                    Já recebido? (marcar presente como pago)
+                  </span>
+                </label>
 
                 {error && (
                   <p className="text-sm text-[hsl(var(--destructive))]">

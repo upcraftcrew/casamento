@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { Loader2, Gift, MessageCircle, Wallet, ArrowRight } from "lucide-react";
+import { Loader2, MessageCircle, ArrowRight } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import MetaLabel from "@/components/wedding/meta-label";
 
@@ -136,23 +136,6 @@ export default function AdminDashboardPage() {
                   .toFixed(2)
                   .replace(".", ",")}`}
               />
-            </div>
-          </section>
-
-          <section className="border border-[hsl(var(--primary))]/30 p-8 md:p-12 bg-[hsl(var(--primary))]/5 flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="flex-1">
-              <MetaLabel className="mb-3">Em breve</MetaLabel>
-              <h3 className="font-display italic text-3xl md:text-4xl mb-2">
-                Integração com Asaas
-              </h3>
-              <p className="text-[hsl(var(--muted-foreground))] leading-relaxed max-w-xl">
-                Em breve será possível receber pagamentos via PIX e cartão
-                diretamente pelo site, com confirmação automática.
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Gift className="w-5 h-5 text-[hsl(var(--primary))]" />
-              <Wallet className="w-5 h-5 text-[hsl(var(--primary))]" />
             </div>
           </section>
         </>

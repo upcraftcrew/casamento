@@ -14,6 +14,8 @@ const giftObject = v.object({
   preco: v.optional(v.number()),
   imagem: v.optional(v.string()),
   status: giftStatus,
+  reservedUntil: v.optional(v.number()),
+  reservedByPaymentId: v.optional(v.id("payments")),
   order: v.number(),
   createdAt: v.number(),
 });
@@ -138,12 +140,12 @@ export const remove = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const payments = await ctx.db
-      .query("payments")
+    const items = await ctx.db
+      .query("purchaseItems")
       .withIndex("by_gift", (q) => q.eq("giftId", args.id))
       .collect();
-    for (const p of payments) {
-      await ctx.db.delete(p._id);
+    for (const it of items) {
+      await ctx.db.delete(it._id);
     }
     await ctx.db.delete(args.id);
     return null;

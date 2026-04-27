@@ -8,8 +8,12 @@
  * @module
  */
 
+import type * as checkout from "../checkout.js";
+import type * as crons from "../crons.js";
 import type * as gifts from "../gifts.js";
+import type * as http from "../http.js";
 import type * as lib_admin from "../lib/admin.js";
+import type * as lib_asaas from "../lib/asaas.js";
 import type * as messages from "../messages.js";
 import type * as payments from "../payments.js";
 import type * as seed from "../seed.js";
@@ -22,8 +26,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  checkout: typeof checkout;
+  crons: typeof crons;
   gifts: typeof gifts;
+  http: typeof http;
   "lib/admin": typeof lib_admin;
+  "lib/asaas": typeof lib_asaas;
   messages: typeof messages;
   payments: typeof payments;
   seed: typeof seed;

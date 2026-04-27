@@ -2,13 +2,24 @@
 
 import { motion } from "framer-motion";
 import { useQuery } from "convex/react";
-import { ExternalLink, Gift, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ExternalLink,
+  Gift,
+  Loader2,
+  Plus,
+  ShoppingBag,
+  Check,
+  Clock,
+} from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import MetaLabel from "@/components/wedding/meta-label";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/components/cart/cart-provider";
 
 export default function ListaPresentesPage() {
   const presentes = useQuery(api.gifts.listPublic);
+  const cart = useCart();
   const isLoading = presentes === undefined;
   const lista = presentes ?? [];
   const categorias = Array.from(new Set(lista.map((p) => p.categoria)));
@@ -27,8 +38,8 @@ export default function ListaPresentesPage() {
         </h1>
         <p className="mt-10 max-w-xl text-lg text-[hsl(var(--muted-foreground))] leading-relaxed">
           Sua presença já é o nosso maior presente. Mas se quiser nos
-          presentear, separamos alguns itens que adoraríamos ter em nosso novo
-          lar.
+          presentear, escolha um ou mais itens abaixo. Você pode pagar com PIX
+          ou cartão diretamente pelo site.
         </p>
       </section>
 
@@ -55,6 +66,10 @@ export default function ListaPresentesPage() {
                 .filter((p) => p.categoria === cat)
                 .map((item, i) => {
                   const isPago = item.status === "pago";
+                  const isReservado = item.status === "reservado";
+                  const inCart = cart.has(item._id);
+                  const semPreco = typeof item.preco !== "number";
+
                   return (
                     <motion.article
                       key={item._id}
@@ -63,7 +78,7 @@ export default function ListaPresentesPage() {
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: i * 0.08 }}
                       className={`group bg-background/80 backdrop-blur-sm p-8 flex flex-col gap-4 transition-colors ${
-                        isPago
+                        isPago || isReservado
                           ? "opacity-60"
                           : "hover:bg-[hsl(var(--secondary))]"
                       }`}
@@ -87,31 +102,69 @@ export default function ListaPresentesPage() {
                         )}
                       </div>
 
-                      {isPago ? (
-                        <div className="self-start pt-4 mt-2 border-t border-[hsl(var(--border))] w-full flex items-center gap-3 text-[hsl(var(--accent))]">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span className="meta-label text-[hsl(var(--accent))]">
+                      <div className="self-stretch pt-4 mt-2 border-t border-[hsl(var(--border))] flex items-center justify-between gap-3">
+                        {isPago ? (
+                          <span className="meta-label text-[hsl(var(--accent))] inline-flex items-center gap-2">
+                            <CheckCircle2 className="w-3 h-3" />
                             Já foi presenteado
                           </span>
-                        </div>
-                      ) : (
-                        <Button
-                          asChild
-                          variant="link"
-                          className="self-start h-auto p-0 pt-4 mt-2 border-t border-[hsl(var(--border))] rounded-none w-full justify-start gap-3 text-[hsl(var(--primary))] no-underline hover:no-underline hover:gap-5 transition-all"
-                        >
+                        ) : isReservado ? (
+                          <span className="meta-label text-[hsl(var(--muted-foreground))] inline-flex items-center gap-2">
+                            <Clock className="w-3 h-3" />
+                            Reservado
+                          </span>
+                        ) : semPreco ? (
+                          <span className="meta-label text-[hsl(var(--muted-foreground))]">
+                            Sem preço definido
+                          </span>
+                        ) : inCart ? (
+                          <Button
+                            type="button"
+                            onClick={() => cart.remove(item._id)}
+                            variant="ghost"
+                            className="h-auto p-0 rounded-none gap-2 text-[hsl(var(--accent))] hover:bg-transparent hover:text-[hsl(var(--accent))] hover:gap-3 transition-all"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span className="meta-label text-[hsl(var(--accent))]">
+                              No carrinho
+                            </span>
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              cart.add({
+                                giftId: item._id,
+                                titulo: item.titulo,
+                                categoria: item.categoria,
+                                preco: item.preco ?? 0,
+                                imagem: item.imagem,
+                              });
+                              cart.open();
+                            }}
+                            variant="ghost"
+                            className="h-auto p-0 rounded-none gap-2 text-[hsl(var(--primary))] hover:bg-transparent hover:text-[hsl(var(--primary))] hover:gap-3 transition-all"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span className="meta-label text-[hsl(var(--primary))]">
+                              Adicionar ao carrinho
+                            </span>
+                          </Button>
+                        )}
+
+                        {item.url && item.url !== "#" && (
                           <a
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            className="meta-label inline-flex items-center gap-1 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))]"
+                            aria-label={`Ver ${item.titulo} na loja`}
                           >
                             <ExternalLink className="w-3 h-3" />
-                            <span className="meta-label text-[hsl(var(--primary))]">
-                              Ver presente
-                            </span>
+                            Ver loja
                           </a>
-                        </Button>
-                      )}
+                        )}
+                      </div>
                     </motion.article>
                   );
                 })}
@@ -120,8 +173,32 @@ export default function ListaPresentesPage() {
         ))
       )}
 
+      {cart.count > 0 && (
+        <section className="px-[5vw] md:px-[8vw] mt-10">
+          <div className="border border-[hsl(var(--primary))] p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-8 bg-[hsl(var(--primary))]/5">
+            <div className="flex-1">
+              <MetaLabel className="mb-2">
+                {cart.count} {cart.count === 1 ? "presente" : "presentes"} no carrinho
+              </MetaLabel>
+              <p className="font-display italic text-2xl md:text-3xl">
+                Total: R$ {cart.total.toFixed(2).replace(".", ",")}
+              </p>
+            </div>
+            <Button
+              onClick={cart.open}
+              className="group gap-3 rounded-none border border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-transparent hover:text-[hsl(var(--primary))] h-auto px-6 py-4"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="meta-label text-[hsl(var(--primary-foreground))] group-hover:text-[hsl(var(--primary))]">
+                Ver carrinho e pagar
+              </span>
+            </Button>
+          </div>
+        </section>
+      )}
+
       <section className="px-[5vw] md:px-[8vw] mt-10">
-        <div className="border border-[hsl(var(--primary))]/30 p-8 md:p-12 flex flex-col md:flex-row items-start md:items-center gap-6 bg-[hsl(var(--primary))]/5">
+        <div className="border border-[hsl(var(--border))] p-8 md:p-12 flex flex-col md:flex-row items-start md:items-center gap-6 bg-background/40">
           <div className="flex-1">
             <MetaLabel className="mb-3">Contribuição livre</MetaLabel>
             <h3 className="font-display italic text-3xl md:text-4xl mb-2">

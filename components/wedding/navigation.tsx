@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, ShoppingBag, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/components/cart/cart-provider";
 
 type Route = { path: string; label: string; num: string };
 
@@ -24,6 +25,7 @@ const routes: Route[] = [
 export default function Navigation() {
     const [open, setOpen] = useState(false);
     const pathname = usePathname();
+    const cart = useCart();
 
     useEffect(() => {
         document.body.style.overflow = open ? "hidden" : "";
@@ -52,10 +54,24 @@ export default function Navigation() {
                     />
                 </Link>
 
-                <div className="pointer-events-auto flex items-center gap-6">
+                <div className="pointer-events-auto flex items-center gap-3 md:gap-6">
                     <span className="meta-label hidden md:inline">
                         {current?.num ?? "00"} / {current?.label ?? "Index"}
                     </span>
+                    {cart.count > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={cart.open}
+                            aria-label={`Abrir carrinho com ${cart.count} ${cart.count === 1 ? "presente" : "presentes"}`}
+                            className="group relative gap-2 text-[hsl(var(--foreground))] hover:text-[hsl(var(--primary))] hover:bg-transparent px-2"
+                        >
+                            <ShoppingBag className="w-4 h-4" />
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[hsl(var(--primary))] text-[10px] font-mono text-[hsl(var(--primary-foreground))]">
+                                {cart.count}
+                            </span>
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
